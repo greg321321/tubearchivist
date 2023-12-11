@@ -8,7 +8,7 @@ import json
 from datetime import datetime
 
 from home.src.download.thumbnails import ThumbManager
-from home.src.es.connect import ElasticWrap
+from home.src.es.connect import ElasticWrap, IndexPaginate
 from home.src.index.generic import YouTubeItem
 from home.src.index.video import YoutubeVideo
 
@@ -91,6 +91,32 @@ class YoutubePlaylist(YouTubeItem):
             all_members.append(to_append)
 
         self.all_members = all_members
+
+    def get_playlist_videos(self, detail_level=1):
+        """get all videos from playlist"""
+        source = ["youtube_id", "vid_type"]
+        video_ids = [
+            i["youtube_id"]
+            for i in self.json_data["playlist_entries"]
+            if i["downloaded"]
+        ]
+        if detail_level == 2:
+            source = [
+                "youtube_id",
+                "vid_type",
+                "title",
+                "media_size",
+                "description",
+                "media_url",
+                "vid_last_refresh",
+                "player",
+            ]
+        data = {
+            "query": {"bool": {"must": [{"ids": {"values": video_ids}}]}},
+            "_source": source,
+        }
+        all_videos = IndexPaginate("ta_video", data).get_results()
+        return all_videos
 
     def get_playlist_art(self):
         """download artwork of playlist"""
