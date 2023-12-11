@@ -30,6 +30,10 @@ class YoutubeChannel(YouTubeItem):
         self.all_playlists = False
         self.task = task
 
+    def build_yt_url(self):
+        """build youtube url"""
+        return f"{self.yt_base}{self.youtube_id}/featured"
+
     def build_json(self, upload=False, fallback=False):
         """get from es or from youtube"""
         self.get_from_es()
@@ -290,13 +294,25 @@ class YoutubeChannel(YouTubeItem):
 
         return all_youtube_ids
 
-    def get_channel_videos(self):
+    def get_channel_videos(self, detail_level=1):
         """get all videos from channel"""
+        source = ["youtube_id", "vid_type"]
+        if detail_level == 2:
+            source = [
+                "youtube_id",
+                "vid_type",
+                "title",
+                "media_size",
+                "description",
+                "media_url",
+                "vid_last_refresh",
+                "player",
+            ]
         data = {
             "query": {
                 "term": {"channel.channel_id": {"value": self.youtube_id}}
             },
-            "_source": ["youtube_id", "vid_type"],
+            "_source": source,
         }
         all_videos = IndexPaginate("ta_video", data).get_results()
         return all_videos

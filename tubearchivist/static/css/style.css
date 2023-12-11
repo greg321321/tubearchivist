@@ -120,6 +120,10 @@ button:hover {
     color: var(--main-bg);
 }
 
+#rss_buttons button {
+	margin-bottom: 5px;
+}
+
 .button-box {
     padding: 5px 0;
 }
@@ -178,6 +182,10 @@ button:hover {
 
 .footer a {
     text-decoration: underline;
+}
+
+.footer .boxed-content {
+    text-align: center;
 }
 
 /* toggle on-off */
@@ -346,6 +354,7 @@ button:hover {
     margin: 15px 0;
 }
 
+.rss-icons,
 .view-icons,
 .grid-count {
     display: flex;
@@ -374,7 +383,7 @@ button:hover {
     padding-top: 10px;
 }
 
-#hidden-form {
+#hidden-form, .hidden {
     display: none;
 }
 
@@ -702,12 +711,23 @@ video:-webkit-full-screen {
     margin: 0 15px;
 }
 
+.rss-icons > img {
+    width: 30px;
+    margin: 5px 10px;
+    cursor: pointer;
+    filter: var(--img-filter);
+}
+
 .info-box-item {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     padding: 15px;
     background-color: var(--highlight-bg);
+}
+
+.info-box-item.two {
+	justify-content: space-between;
 }
 
 .info-box-item p {

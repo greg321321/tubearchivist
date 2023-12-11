@@ -1,7 +1,19 @@
 """all API views"""
 
-from api.src.aggs import BiggestChannel, DownloadHist, Primary, WatchProgress
+import os
+
+from api.src.aggs import (
+    BiggestChannel,
+    Channel,
+    Download,
+    DownloadHist,
+    Playlist,
+    Video,
+    WatchProgress,
+)
 from api.src.search_processor import SearchProcess
+from django.core.files.temp import NamedTemporaryFile
+from django.http import FileResponse
 from home.src.download.queue import PendingInteract
 from home.src.download.subscriptions import (
     ChannelSubscription,
@@ -15,6 +27,7 @@ from home.src.frontend.searching import SearchForm
 from home.src.frontend.watched import WatchState
 from home.src.index.channel import YoutubeChannel
 from home.src.index.generic import Pagination
+from home.src.index.manual import ImportFolderScanner
 from home.src.index.playlist import YoutubePlaylist
 from home.src.index.reindex import ReindexProgress
 from home.src.index.video import SponsorBlock, YoutubeVideo
@@ -301,6 +314,28 @@ class VideoSponsorView(ApiBaseView):
         )
 
         return response, status_code
+
+
+class VideoMP3View(ApiBaseView):
+    """resolves to /api/video/<video_id>/mp3/
+    handle mp3 version of video
+    """
+
+    def get(self, request, video_id):
+        video = YoutubeVideo(video_id)
+        video.get_from_es()
+        video_filepath = os.path.join(
+            EnvironmentSettings.MEDIA_DIR,
+            video.json_data["channel"]["channel_id"],
+            video.json_data["youtube_id"] + ".mp4",
+        )
+        audio_filepath = NamedTemporaryFile(suffix=".mp3")
+        ImportFolderScanner.convert_media(video_filepath, audio_filepath.name)
+        return FileResponse(
+            open(audio_filepath.name, "rb"),
+            as_attachment=True,
+            filename=video.json_data["youtube_id"] + ".mp3",
+        )
 
 
 class ChannelApiView(ApiBaseView):
@@ -1163,16 +1198,52 @@ class NotificationView(ApiBaseView):
         return Response(RedisArchivist().list_items(query))
 
 
-class StatPrimaryView(ApiBaseView):
-    """resolves to /api/stats/primary/
-    GET: return document count
+class StatVideoView(ApiBaseView):
+    """resolves to /api/stats/video/
+    GET: return video stats
     """
 
     def get(self, request):
         """get stats"""
         # pylint: disable=unused-argument
 
-        return Response(Primary().process())
+        return Response(Video().process())
+
+
+class StatChannelView(ApiBaseView):
+    """resolves to /api/stats/channel/
+    GET: return channel stats
+    """
+
+    def get(self, request):
+        """get stats"""
+        # pylint: disable=unused-argument
+
+        return Response(Channel().process())
+
+
+class StatPlaylistView(ApiBaseView):
+    """resolves to /api/stats/playlist/
+    GET: return playlist stats
+    """
+
+    def get(self, request):
+        """get stats"""
+        # pylint: disable=unused-argument
+
+        return Response(Playlist().process())
+
+
+class StatDownloadView(ApiBaseView):
+    """resolves to /api/stats/download/
+    GET: return download stats
+    """
+
+    def get(self, request):
+        """get stats"""
+        # pylint: disable=unused-argument
+
+        return Response(Download().process())
 
 
 class StatWatchProgress(ApiBaseView):
