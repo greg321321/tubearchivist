@@ -9,6 +9,7 @@
         <h1>{{ playlist_info.playlist_name }}</h1>
     </div>
     <div class="info-box info-box-3">
+      {% if playlist_info.playlist_type != "custom" %}
     	<div class="info-box-item two">
 	        <div class="info-box-item">
 	            <div class="round-img">
@@ -25,6 +26,8 @@
 	                {% endif %}
 	            </div>
 	        </div>
+	    {% endif %}
+        
 	        <div class="rss-icons">
 	        	<img id="rss-audio-button" src="{% static 'img/icon-rss.svg' %}" alt="rss-icon" data-context="video" onclick="showForm('rss_buttons')" title="Podcast">
 	        </div>
@@ -36,19 +39,21 @@
         <div class="info-box-item">
             <div>
                 <p>Last refreshed: {{ playlist_info.playlist_last_refresh }}</p>
-                <p>Playlist:
-                    {% if playlist_info.playlist_subscribed %}
-                        {% if request.user|has_group:"admin" or request.user.is_staff %}
-                        <button class="unsubscribe" type="button" data-type="playlist" data-subscribe="" data-id="{{ playlist_info.playlist_id }}" onclick="subscribeStatus(this)" title="Unsubscribe from {{ playlist_info.playlist_name }}">Unsubscribe</button>
-                        {% endif %}
-                    {% else %}
-                        <button type="button" data-type="playlist" data-subscribe="true" data-id="{{ playlist_info.playlist_id }}" onclick="subscribeStatus(this)" title="Subscribe to {{ playlist_info.playlist_name }}">Subscribe</button>
-                    {% endif %}
-                </p>
-                {% if playlist_info.playlist_active %}
-                    <p>Youtube: <a href="https://www.youtube.com/playlist?list={{ playlist_info.playlist_id }}" target="_blank">Active</a></p>
-                {% else %}
-                    <p>Youtube: Deactivated</p>
+                {% if playlist_info.playlist_type != "custom" %}
+	                <p>Playlist:
+	                    {% if playlist_info.playlist_subscribed %}
+	                        {% if request.user|has_group:"admin" or request.user.is_staff %}
+	                        <button class="unsubscribe" type="button" data-type="playlist" data-subscribe="" data-id="{{ playlist_info.playlist_id }}" onclick="subscribeStatus(this)" title="Unsubscribe from {{ playlist_info.playlist_name }}">Unsubscribe</button>
+	                        {% endif %}
+	                    {% else %}
+	                        <button type="button" data-type="playlist" data-subscribe="true" data-id="{{ playlist_info.playlist_id }}" onclick="subscribeStatus(this)" title="Subscribe to {{ playlist_info.playlist_name }}">Subscribe</button>
+	                    {% endif %}
+	                </p>
+	                {% if playlist_info.playlist_active %}
+	                    <p>Youtube: <a href="https://www.youtube.com/playlist?list={{ playlist_info.playlist_id }}" target="_blank">Active</a></p>
+	                {% else %}
+	                    <p>Youtube: Deactivated</p>
+	                {% endif %}
                 {% endif %}
                 <button onclick="deleteConfirm()" id="delete-item">Delete Playlist</button>
                 <div class="delete-confirm" id="delete-button">
@@ -72,7 +77,9 @@
                     <p>Reindex scheduled</p>
                 {% else %}
                     <div id="reindex-button" class="button-box">
-                        <button data-id="{{ playlist_info.playlist_id }}" data-type="playlist" onclick="reindex(this)" title="Reindex Playlist {{ playlist_info.playlist_name }}">Reindex</button>
+                    	{% if playlist_info.playlist_type != "custom" %}
+                        	<button data-id="{{ playlist_info.playlist_id }}" data-type="playlist" onclick="reindex(this)" title="Reindex Playlist {{ playlist_info.playlist_name }}">Reindex</button>
+                        {% endif %}
                         <button data-id="{{ playlist_info.playlist_id }}" data-type="playlist" data-extract-videos="true" onclick="reindex(this)" title="Reindex Videos of {{ playlist_info.playlist_name }}">Reindex Videos</button>
                     </div>
                 {% endif %}
@@ -147,15 +154,37 @@
                             {% endif %}
                             <span>{{ video.published }} | {{ video.player.duration_str }}</span>
                         </div>
-                        <div>
-                            <a class="video-more" href="{% url 'video' video.youtube_id %}"><h2>{{ video.title }}</h2></a>
+                        <div class="video-desc-details">
+                            <div>
+                                {% if playlist_info.playlist_type == "custom" %}
+	                            	<a href="{% url 'channel_id' video.channel.channel_id %}"><h3>{{ video.channel.channel_name }}</h3></a>
+	                            {% endif %}
+	                            <a class="video-more" href="{% url 'video' video.youtube_id %}"><h2>{{ video.title }}</h2></a>
+                        	</div>
+                        	{% if playlist_info.playlist_type == "custom" %}
+                        		{% if pagination %}
+                        			{% if pagination.last_page > 0 %}
+	                        			<img id="{{ video.youtube_id }}-button2" src="{% static 'img/icon-dot-menu.svg' %}" alt="dot-menu-icon" data-id="{{ video.youtube_id }}" data-context="video" onclick="showDotMenuCustomPlaylist(this,'{{playlist_info.playlist_id}}',{{pagination.current_page}},{{pagination.last_page}})" class="dot-button" title="More actions">
+	                        		{% else %}
+	                        			<img id="{{ video.youtube_id }}-button2" src="{% static 'img/icon-dot-menu.svg' %}" alt="dot-menu-icon" data-id="{{ video.youtube_id }}" data-context="video" onclick="showDotMenuCustomPlaylist(this,'{{playlist_info.playlist_id}}',{{pagination.current_page}},{{pagination.current_page}})" class="dot-button" title="More actions">
+                        			{% endif %}
+                        		{% else %}
+                        			<img id="{{ video.youtube_id }}-button2" src="{% static 'img/icon-dot-menu.svg' %}" alt="dot-menu-icon" data-id="{{ video.youtube_id }}" data-context="video" onclick="showDotMenuCustomPlaylist(this,'{{playlist_info.playlist_id}}',0,0)" class="dot-button" title="More actions">
+                        		{% endif %}
+                        	{% else %}
+                        		<img id="{{ video.youtube_id }}-button2" src="{% static 'img/icon-dot-menu.svg' %}" alt="dot-menu-icon" data-id="{{ video.youtube_id }}" data-context="video" onclick="showDotMenu(this)" class="dot-button" title="More actions">
+                        	{% endif %}
                         </div>
                     </div>
                 </div>
             {% endfor %}
         {% else %}
             <h2>No videos found...</h2>
-            <p>Try going to the <a href="{% url 'downloads' %}">downloads page</a> to start the scan and download tasks.</p>
+            {% if playlist_info.playlist_type == "custom" %}
+               <p>Try going to the <a href="{% url 'home' %}">home page</a> to add videos to this playlist.</p>
+            {% else %}
+            	<p>Try going to the <a href="{% url 'downloads' %}">downloads page</a> to start the scan and download tasks.</p>
+            {% endif %} 
         {% endif %}
     </div>
 </div>

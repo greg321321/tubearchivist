@@ -42,10 +42,11 @@ from home.tasks import (
     check_reindex,
     download_pending,
     extrac_dl,
+    get_playlist_art,
     run_restore_backup,
     subscribe_to,
 )
-from rest_framework import permissions
+from rest_framework import permissions, status
 from rest_framework.authentication import (
     SessionAuthentication,
     TokenAuthentication,
@@ -492,9 +493,15 @@ class PlaylistApiListView(ApiBaseView):
 
     def get(self, request):
         """handle get request"""
-        self.data.update(
-            {"sort": [{"playlist_name.keyword": {"order": "asc"}}]}
-        )
+        playlist_type = request.GET.get("playlist_type", None)
+        if playlist_type is not None:
+            query = {
+                "query": {"term": {"playlist_type": {"value": playlist_type}}},
+                "sort": [{"playlist_name.keyword": {"order": "asc"}}],
+            }
+        else:
+            query = {"sort": [{"playlist_name.keyword": {"order": "asc"}}]}
+        self.data.update(query)
         self.get_document_list(request)
         return Response(self.response)
 
@@ -544,6 +551,21 @@ class PlaylistApiView(ApiBaseView):
         """get request"""
         self.get_document(playlist_id)
         return Response(self.response, status=self.status_code)
+
+    def post(self, request, playlist_id):
+        """post to custom playlist to add a video to list"""
+        action = request.data.get("action")
+        video_id = request.data.get("video_id")
+        if action == "create":
+            YoutubePlaylist(playlist_id).add_video_to_playlist(video_id)
+        else:
+            YoutubePlaylist(playlist_id).move_video(
+                video_id,
+                action,
+                UserConfig(request.user.id).get_value("hide_watched"),
+            )
+        get_playlist_art.delay(playlist_id)
+        return Response({"success": True}, status=status.HTTP_201_CREATED)
 
     def delete(self, request, playlist_id):
         """delete playlist"""

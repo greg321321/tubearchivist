@@ -27,6 +27,7 @@ from home.src.frontend.forms import (
     AddToQueueForm,
     ApplicationSettingsForm,
     ChannelOverwriteForm,
+    CreatePlaylistForm,
     CustomAuthForm,
     MultiSearchForm,
     SchedulerSettingsForm,
@@ -206,7 +207,9 @@ class ArchivistResultsView(ArchivistViewConfig):
         response, _ = ElasticWrap(self.es_search).get(self.data)
         process_aggs(response)
         results = SearchProcess(response).process()
-        max_hits = response["hits"]["total"]["value"]
+        max_hits = (
+            response["hits"]["total"]["value"] if "hits" in response else 0
+        )
         self.pagination_handler.validate(max_hits)
         self.context.update(
             {
@@ -785,12 +788,12 @@ class PlaylistIdView(ArchivistResultsView):
         # playlist details
         es_path = f"ta_playlist/_doc/{playlist_id}"
         playlist_info = self.single_lookup(es_path)
-
-        # channel details
-        channel_id = playlist_info["playlist_channel_id"]
-        es_path = f"ta_channel/_doc/{channel_id}"
-        channel_info = self.single_lookup(es_path)
-
+        channel_info = None
+        if playlist_info["playlist_type"] != "custom":
+            # channel details
+            channel_id = playlist_info["playlist_channel_id"]
+            es_path = f"ta_channel/_doc/{channel_id}"
+            channel_info = self.single_lookup(es_path)
         return playlist_info, channel_info
 
     def _update_view_data(self, playlist_id, playlist_info):
@@ -804,13 +807,16 @@ class PlaylistIdView(ArchivistResultsView):
             + "{return params.scores[doc['youtube_id'].value];} "
             + "return 100000;"
         )
+        if playlist_info["playlist_type"] == "custom":
+            video_ids = [
+                i["youtube_id"] for i in playlist_info["playlist_entries"]
+            ]
+            must_clause = {"ids": {"values": video_ids}}
+        else:
+            must_clause = {"match": {"playlist.keyword": playlist_id}}
         self.data.update(
             {
-                "query": {
-                    "bool": {
-                        "must": [{"match": {"playlist.keyword": playlist_id}}]
-                    }
-                },
+                "query": {"bool": {"must": [must_clause]}},
                 "sort": [
                     {
                         "_script": {
@@ -891,6 +897,7 @@ class PlaylistView(ArchivistResultsView):
             {
                 "title": "Playlists",
                 "subscribe_form": SubscribeToPlaylistForm(),
+                "create_form": CreatePlaylistForm(),
             }
         )
 
@@ -925,12 +932,18 @@ class PlaylistView(ArchivistResultsView):
     @method_decorator(user_passes_test(check_admin), name="dispatch")
     @staticmethod
     def post(request):
-        """handle post from search form"""
-        subscribe_form = SubscribeToPlaylistForm(data=request.POST)
-        if subscribe_form.is_valid():
-            url_str = request.POST.get("subscribe")
-            print(url_str)
-            subscribe_to.delay(url_str, expected_type="playlist")
+        """handle post from subscribe or create form"""
+        if request.POST.get("create") is not None:
+            create_form = CreatePlaylistForm(data=request.POST)
+            if create_form.is_valid():
+                name = request.POST.get("create")
+                YoutubePlaylist().create(name)
+        else:
+            subscribe_form = SubscribeToPlaylistForm(data=request.POST)
+            if subscribe_form.is_valid():
+                url_str = request.POST.get("subscribe")
+                print(url_str)
+                subscribe_to.delay(url_str, expected_type="playlist")
 
         sleep(1)
         return redirect("playlist")
