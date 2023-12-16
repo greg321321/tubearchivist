@@ -103,6 +103,10 @@ def date_praser(timestamp: int | str, format: str = None) -> str:
         return date_obj.strftime(format)
 
 
+def str_to_timestamp(datetime_str, format):
+    return int(datetime.timestamp(datetime.strptime(datetime_str, format)))
+
+
 def time_parser(timestamp: str) -> float:
     """return seconds from timestamp, false on empty"""
     if not timestamp:

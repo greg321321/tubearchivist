@@ -113,6 +113,7 @@ class YoutubePlaylist(YouTubeItem):
                 "description",
                 "media_url",
                 "vid_last_refresh",
+                "published",
                 "player",
             ]
         data = {
